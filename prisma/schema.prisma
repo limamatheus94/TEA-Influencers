@@ -1,0 +1,407 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  CREATOR
+  BRAND
+  ADMIN
+}
+
+enum CampaignStatus {
+  DRAFT
+  OPEN
+  IN_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REVISION_REQUESTED
+}
+
+enum PaymentStatus {
+  ESCROW
+  RELEASED
+  REFUNDED
+  DISPUTED
+}
+
+enum OutreachStatus {
+  PENDING
+  SCORED
+  QUEUED
+  SENT
+  OPENED
+  RESPONDED
+  FEATURED
+  INVITED
+  REGISTERED
+}
+
+enum ScrapingSource {
+  SPOTIFY
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+  MANUAL
+}
+
+enum ScrapingJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum Platform {
+  SPOTIFY
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+  APPLE_MUSIC
+  SOUNDCLOUD
+  OTHER
+}
+
+// ─────────────────────────────────────────────
+// MODULE 1 — MARKETPLACE
+// ─────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creatorProfile      CreatorProfile?
+  brandProfile        BrandProfile?
+  sentMessages        Message[]           @relation("SentMessages")
+  receivedMessages    Message[]           @relation("ReceivedMessages")
+  notifications       Notification[]
+  campaignInvitations CampaignInvitation[] @relation("InvitedCreators")
+
+  @@map("users")
+}
+
+model CreatorProfile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName         String
+  bio                 String?
+  avatarUrl           String?
+  location            String?
+  genres              String[]
+  mediaKitUrl         String?
+  stripeAccountId     String?   // Stripe Express account ID
+  stripeOnboarded     Boolean   @default(false)
+  fitScore            Float?    // AI-computed aggregate score
+  isPublic            Boolean   @default(true)
+  invitedFromToken    String?
+  discoveredCreatorId String?            @unique
+  discoveredCreator   DiscoveredCreator? @relation(fields: [discoveredCreatorId], references: [id])
+
+  platforms    CreatorPlatform[]
+  applications Application[]
+  payouts      Payment[]         @relation("CreatorPayments")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("creator_profiles")
+}
+
+model CreatorPlatform {
+  id               String         @id @default(cuid())
+  creatorProfileId String
+  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  platform         Platform
+  handle           String
+  url              String
+  followersCount   Int?
+  subscribersCount Int?
+  isVerified       Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  @@unique([creatorProfileId, platform])
+  @@map("creator_platforms")
+}
+
+model BrandProfile {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  website     String?
+  logoUrl     String?
+  bio         String?
+  campaigns   Campaign[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("brand_profiles")
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  brandProfileId String
+  brandProfile   BrandProfile   @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+  title          String
+  description    String
+  genres         String[]
+  platforms      Platform[]
+  budgetCents    Int
+  commissionRate Float          @default(0.15)
+  deliverables   String
+  deadline       DateTime?
+  maxApplications Int?
+  status         CampaignStatus @default(DRAFT)
+  stripePaymentIntentId String?
+
+  applications Application[]
+  invitations  CampaignInvitation[]
+  messages     Message[]
+  payments     Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("campaigns")
+}
+
+model Application {
+  id               String            @id @default(cuid())
+  campaignId       String
+  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorProfileId String
+  creatorProfile   CreatorProfile    @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  pitch            String
+  status           ApplicationStatus @default(PENDING)
+  deliveryItems    DeliveryItem[]
+  payment          Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, creatorProfileId])
+  @@map("applications")
+}
+
+model CampaignInvitation {
+  id         String            @id @default(cuid())
+  campaignId String
+  campaign   Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    User              @relation("InvitedCreators", fields: [creatorId], references: [id], onDelete: Cascade)
+  message    String?
+  status     ApplicationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+
+  @@unique([campaignId, creatorId])
+  @@map("campaign_invitations")
+}
+
+model DeliveryItem {
+  id            String         @id @default(cuid())
+  applicationId String
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  platform      Platform
+  url           String
+  screenshotUrl String?
+  notes         String?
+  status        DeliveryStatus @default(PENDING)
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("delivery_items")
+}
+
+model Payment {
+  id               String         @id @default(cuid())
+  campaignId       String
+  campaign         Campaign       @relation(fields: [campaignId], references: [id])
+  applicationId    String?        @unique
+  application      Application?   @relation(fields: [applicationId], references: [id])
+  creatorProfileId String
+  creatorProfile   CreatorProfile @relation("CreatorPayments", fields: [creatorProfileId], references: [id])
+  amountCents      Int
+  commissionCents  Int
+  netCents         Int
+  status           PaymentStatus  @default(ESCROW)
+  stripeTransferId String?
+  releasedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@map("messages")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("notifications")
+}
+
+model PlatformConfig {
+  id             String   @id @default(cuid())
+  commissionRate Float    @default(0.15)
+  updatedBy      String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("platform_config")
+}
+
+// ─────────────────────────────────────────────
+// MODULE 2 — OUTREACH TOOL
+// ─────────────────────────────────────────────
+
+// Cache global de curators descobertos — reutilizado entre campanhas por gênero
+model DiscoveredCreator {
+  id             String         @id @default(cuid())
+  source         ScrapingSource
+  externalId     String
+  name           String
+  email          String?
+  profileUrl     String
+  avatarUrl      String?
+  platform       Platform
+  handle         String?
+  followersCount Int?
+  genres         String[]
+  location       String?
+  recentContent  Json?          // últimas playlists/vídeos para o AI usar no pitch
+  rawData        Json?          // dump completo para reprocessamento futuro
+  lastScrapedAt  DateTime       @default(now())
+
+  outreachContacts OutreachContact[]
+  creatorProfile   CreatorProfile?
+
+  @@unique([source, externalId])
+  @@map("discovered_creators")
+}
+
+model OutreachCampaign {
+  id              String     @id @default(cuid())
+  title           String
+  artistName      String
+  songTitle       String
+  songUrl         String?
+  genre           String
+  targetPlatforms Platform[]
+  geoTargets      String[]
+  description     String?
+  isActive        Boolean    @default(true)
+  createdBy       String     // userId do admin
+
+  contacts     OutreachContact[]
+  scrapingJobs ScrapingJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("outreach_campaigns")
+}
+
+model OutreachContact {
+  id                 String           @id @default(cuid())
+  outreachCampaignId String
+  outreachCampaign   OutreachCampaign @relation(fields: [outreachCampaignId], references: [id], onDelete: Cascade)
+  discoveredCreatorId String
+  discoveredCreator  DiscoveredCreator @relation(fields: [discoveredCreatorId], references: [id])
+  status             OutreachStatus   @default(PENDING)
+
+  // AI scoring
+  fitScore     Float?
+  fitReasoning String?
+  scoredAt     DateTime?
+
+  // Email
+  emailSubject  String?
+  emailBody     String?
+  generatedAt   DateTime?
+  sentAt        DateTime?
+  openedAt      DateTime?
+  respondedAt   DateTime?
+  brevoMessageId String?
+
+  // Invitation
+  inviteToken          String?   @unique
+  inviteTokenExpiresAt DateTime?
+  inviteSentAt         DateTime?
+  registeredAt         DateTime?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([outreachCampaignId, discoveredCreatorId])
+  @@map("outreach_contacts")
+}
+
+model ScrapingJob {
+  id                 String            @id @default(cuid())
+  outreachCampaignId String
+  outreachCampaign   OutreachCampaign  @relation(fields: [outreachCampaignId], references: [id], onDelete: Cascade)
+  source             ScrapingSource
+  status             ScrapingJobStatus @default(PENDING)
+  query              String
+  genre              String?           // chave de cache por gênero
+  totalFound         Int?
+  totalNew           Int?
+  totalCached        Int?
+  errorMessage       String?
+  inngestEventId     String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime          @default(now())
+
+  @@map("scraping_jobs")
+}
