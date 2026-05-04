@@ -54,7 +54,7 @@ export function CreatorSidebar() {
       </nav>
 
       <div className="border-t border-[#e5e5e5] p-4">
-        <UserButton afterSignOutUrl="/sign-in" />
+        <UserButton />
       </div>
     </aside>
   );

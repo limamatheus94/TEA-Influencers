@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApplicationStatus, CampaignStatus } from "@prisma/client";
 import { ChevronLeft, Calendar, DollarSign, Users, BarChart2 } from "lucide-react";
 import { ApplicationActions, ReleasePaymentForm } from "./application-actions";
+import { CreatorProfilePanel } from "./creator-profile-panel";
 
 const campaignStatusVariant: Record<CampaignStatus, "default" | "success" | "warning" | "secondary" | "destructive"> = {
   DRAFT: "secondary",
@@ -232,6 +233,8 @@ export default async function CampaignDetailPage({
                     <p className="text-xs font-medium text-gray-500 mb-1">Pitch</p>
                     <p className="text-sm text-gray-700">{app.pitch}</p>
                   </div>
+
+                  <CreatorProfilePanel creator={app.creatorProfile} />
 
                   {app.status === "PENDING" && (
                     <ApplicationActions applicationId={app.id} campaignId={campaign.id} />

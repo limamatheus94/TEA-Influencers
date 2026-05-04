@@ -12,7 +12,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider afterSignOutUrl="/sign-in">
       <html
         lang="pt-BR"
         className={`${fontSans.variable} ${fontHeading.variable} ${fontAccent.variable} ${fontMono.variable} h-full antialiased`}
