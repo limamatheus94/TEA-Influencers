@@ -5,7 +5,7 @@ import { CampaignStatus } from "@prisma/client";
 import { z } from "zod";
 
 const schema = z.object({
-  campaignId: z.string().cuid(),
+  campaignId: z.string().min(1),
   pitch: z.string().min(20, "Pitch deve ter ao menos 20 caracteres").max(2000),
 });
 
@@ -25,7 +25,8 @@ export async function POST(req: Request) {
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    const messages = parsed.error.errors.map((e) => e.message).join(", ");
+    return NextResponse.json({ error: messages }, { status: 400 });
   }
 
   const { campaignId, pitch } = parsed.data;
