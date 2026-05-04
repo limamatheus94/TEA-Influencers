@@ -51,7 +51,7 @@ export default function OnboardingPage() {
               onClick={() => setSelected(role.value)}
               className={`w-full text-left p-4 rounded-lg border-2 transition-colors ${
                 selected === role.value
-                  ? "border-blue-600 bg-blue-50"
+                  ? "border-[#3a51fb] bg-[#3a51fb]/5"
                   : "border-gray-200 hover:border-gray-300"
               }`}
             >
@@ -63,7 +63,7 @@ export default function OnboardingPage() {
         <button
           onClick={handleContinue}
           disabled={!selected || loading}
-          className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+          className="w-full py-3 bg-[#3a51fb] text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#2a41eb] transition-colors"
         >
           {loading ? "Setting up your account…" : "Continue"}
         </button>
