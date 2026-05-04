@@ -7,13 +7,20 @@ import { z } from "zod";
 
 const createSchema = z.object({
   title: z.string().min(3).max(100),
-  description: z.string().min(10).max(2000),
-  genres: z.array(z.string()).min(1),
-  platforms: z.array(z.nativeEnum(Platform)).min(1),
-  budgetCents: z.number().int().min(1000),
-  deliverables: z.string().min(5),
+  description: z.string().min(1).max(2000),
+  genres: z.array(z.string()).optional(),
+  platforms: z.array(z.nativeEnum(Platform)).optional(),
+  budgetCents: z.number().int().min(0).optional(),
+  deliverables: z.string().optional(),
   deadline: z.string().datetime().optional(),
   maxApplications: z.number().int().positive().optional(),
+  // Pick & choose fields
+  artistName: z.string().optional(),
+  songTitle: z.string().optional(),
+  songLink: z.string().url().optional().or(z.literal("")),
+  platformSlug: z.string().optional(),
+  selectedPlatformIds: z.array(z.string()).optional(),
+  totalCents: z.number().int().min(0).optional(),
 });
 
 export async function GET() {
@@ -60,6 +67,48 @@ export async function POST(req: Request) {
   }
 
   const data = parsed.data;
+  const isPickAndChoose = Array.isArray(data.selectedPlatformIds) && data.selectedPlatformIds.length > 0;
+
+  if (isPickAndChoose) {
+    // Pick & choose flow: resolve platforms and prices from selected CreatorPlatforms
+    const creatorPlatforms = await prisma.creatorPlatform.findMany({
+      where: { id: { in: data.selectedPlatformIds! } },
+      select: { id: true, platform: true, pricePerPostCents: true, genres: true },
+    });
+
+    const resolvedPlatforms = [...new Set(creatorPlatforms.map((cp) => cp.platform))];
+    const resolvedGenres = [...new Set(creatorPlatforms.flatMap((cp) => cp.genres))];
+    const budget = data.totalCents ?? creatorPlatforms.reduce((sum, cp) => sum + (cp.pricePerPostCents ?? 0), 0);
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        brandProfileId: user.brandProfile.id,
+        title: data.title,
+        artistName: data.artistName,
+        songTitle: data.songTitle,
+        songLink: data.songLink || null,
+        description: data.description,
+        genres: resolvedGenres,
+        platforms: resolvedPlatforms,
+        budgetCents: budget,
+        deliverables: "Influencer post as selected",
+        status: CampaignStatus.OPEN,
+        selections: {
+          create: creatorPlatforms.map((cp) => ({
+            creatorPlatformId: cp.id,
+            agreedPriceCents: cp.pricePerPostCents ?? 0,
+          })),
+        },
+      },
+    });
+
+    return NextResponse.json({ campaign }, { status: 201 });
+  }
+
+  // Legacy multi-step form flow
+  if (!data.genres?.length || !data.platforms?.length || !data.budgetCents || !data.deliverables) {
+    return NextResponse.json({ error: "Missing required fields for campaign creation" }, { status: 400 });
+  }
 
   // Create Stripe PaymentIntent in escrow (manual capture)
   const paymentIntent = await stripe.paymentIntents.create({

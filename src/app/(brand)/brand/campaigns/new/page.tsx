@@ -1,323 +1,102 @@
-"use client";
+import Link from "next/link";
+import { Music, Radio, Newspaper, Disc3, Globe, Share2, Play, Users } from "lucide-react";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Platform } from "@prisma/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2 } from "lucide-react";
+const PLATFORMS = [
+  {
+    id: "MULTI",
+    label: "Multi Platforms",
+    icon: Globe,
+    description: "Run across all platforms",
+    featured: true,
+    available: true,
+  },
+  { id: "INSTAGRAM", label: "Instagram", icon: Share2, available: true },
+  { id: "TIKTOK", label: "TikTok", icon: Music, available: true },
+  { id: "SPOTIFY", label: "Spotify", icon: Disc3, available: true },
+  { id: "SOUNDCLOUD", label: "SoundCloud", icon: Play, available: true },
+  { id: "YOUTUBE", label: "YouTube", icon: Play, available: true },
+  { id: "FACEBOOK", label: "Facebook", icon: Users, available: true },
+  { id: "RADIO", label: "Radio", icon: Radio, available: false, comingSoon: true },
+  { id: "PRESS", label: "Press", icon: Newspaper, available: true },
+  { id: "CLUB_DJS", label: "Club DJs", icon: Disc3, available: false, comingSoon: true },
+] as const;
 
-const schema = z.object({
-  title: z.string().min(3, "At least 3 characters").max(100),
-  description: z.string().min(10, "At least 10 characters").max(2000),
-  genres: z.string().min(1, "Enter at least one genre"),
-  platforms: z.array(z.nativeEnum(Platform)).min(1, "Select at least one platform"),
-  budgetCents: z.number().int().min(1000, "Minimum $10.00"),
-  deliverables: z.string().min(5, "Describe the expected deliverables"),
-  deadline: z.string().optional(),
-  maxApplications: z.number().int().positive().optional(),
-});
-
-type FormData = z.infer<typeof schema>;
-
-const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
-  { value: "SPOTIFY", label: "Spotify" },
-  { value: "YOUTUBE", label: "YouTube" },
-  { value: "INSTAGRAM", label: "Instagram" },
-  { value: "TIKTOK", label: "TikTok" },
-  { value: "APPLE_MUSIC", label: "Apple Music" },
-  { value: "SOUNDCLOUD", label: "SoundCloud" },
-];
-
-const STEPS = ["Basic Info", "Platforms & Genres", "Budget & Deadline", "Review & Pay"];
-
-export default function NewCampaignPage() {
-  const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    trigger,
-    formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { platforms: [] },
-  });
-
-  const platforms = watch("platforms") ?? [];
-
-  function togglePlatform(p: Platform) {
-    const current = platforms;
-    if (current.includes(p)) {
-      setValue("platforms", current.filter((x) => x !== p), { shouldValidate: true });
-    } else {
-      setValue("platforms", [...current, p], { shouldValidate: true });
-    }
-  }
-
-  async function nextStep() {
-    const fieldsPerStep: (keyof FormData)[][] = [
-      ["title", "description"],
-      ["genres", "platforms"],
-      ["budgetCents", "deliverables", "deadline", "maxApplications"],
-      [],
-    ];
-    const ok = await trigger(fieldsPerStep[step]);
-    if (ok) setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  }
-
-  async function onSubmit(data: FormData) {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/brand/campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          genres: data.genres.split(",").map((g) => g.trim()).filter(Boolean),
-          budgetCents: Number(data.budgetCents),
-          maxApplications: data.maxApplications ? Number(data.maxApplications) : undefined,
-          deadline: data.deadline ? new Date(data.deadline).toISOString() : undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error ?? "Failed to create campaign");
-      }
-
-      const { campaign } = await res.json();
-      router.push(`/brand/campaigns/${campaign.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const budgetValue = watch("budgetCents");
-
+export default function NewCampaignPlatformPage() {
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">New Campaign</h1>
-        <p className="text-sm text-gray-500 mt-1">Step {step + 1} of {STEPS.length}</p>
-      </div>
-
-      {/* Step indicator */}
-      <div className="flex items-center gap-2 mb-8">
-        {STEPS.map((s, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div
-              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${
-                i < step
-                  ? "bg-[#3a51fb] text-white"
-                  : i === step
-                  ? "bg-[#3a51fb]/10 text-[#3a51fb] border-2 border-[#3a51fb]"
-                  : "bg-gray-100 text-gray-400"
-              }`}
-            >
-              {i < step ? <CheckCircle className="h-4 w-4" /> : i + 1}
-            </div>
-            <span className={`text-xs hidden sm:block ${i === step ? "text-[#3a51fb] font-medium" : "text-gray-400"}`}>
-              {s}
-            </span>
-            {i < STEPS.length - 1 && <div className="h-px w-6 bg-gray-200" />}
-          </div>
-        ))}
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>{STEPS[step]}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-
-            {/* Step 0 — Basic Info */}
-            {step === 0 && (
-              <>
-                <div>
-                  <Label htmlFor="title">Campaign title *</Label>
-                  <Input id="title" placeholder="e.g. Hip-Hop playlist feature" {...register("title")} />
-                  {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="description">Description *</Label>
-                  <Textarea
-                    id="description"
-                    rows={5}
-                    placeholder="Describe the campaign, the artist, and what you're looking for…"
-                    {...register("description")}
-                  />
-                  {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>}
-                </div>
-              </>
-            )}
-
-            {/* Step 1 — Platforms & Genres */}
-            {step === 1 && (
-              <>
-                <div>
-                  <Label>Platforms *</Label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {PLATFORM_OPTIONS.map(({ value, label }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => togglePlatform(value)}
-                        className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
-                          platforms.includes(value)
-                            ? "bg-[#3a51fb] border-[#3a51fb] text-white"
-                            : "bg-white border-gray-300 text-gray-700 hover:border-[#3a51fb]"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {errors.platforms && <p className="mt-1 text-xs text-red-500">{errors.platforms.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="genres">Music genres *</Label>
-                  <Input
-                    id="genres"
-                    placeholder="e.g. hip-hop, r&b, trap (comma-separated)"
-                    {...register("genres")}
-                  />
-                  {errors.genres && <p className="mt-1 text-xs text-red-500">{errors.genres.message}</p>}
-                </div>
-              </>
-            )}
-
-            {/* Step 2 — Budget & Deadline */}
-            {step === 2 && (
-              <>
-                <div>
-                  <Label htmlFor="budgetCents">Total budget (in cents) *</Label>
-                  <Input
-                    id="budgetCents"
-                    type="number"
-                    min={1000}
-                    placeholder="e.g. 50000 = $500.00"
-                    {...register("budgetCents", { valueAsNumber: true })}
-                  />
-                  {budgetValue > 0 && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      = ${(budgetValue / 100).toFixed(2)} USD
-                    </p>
-                  )}
-                  {errors.budgetCents && <p className="mt-1 text-xs text-red-500">{errors.budgetCents.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="deliverables">Expected deliverables *</Label>
-                  <Textarea
-                    id="deliverables"
-                    rows={3}
-                    placeholder="e.g. 1 playlist feature with min. 5k followers, analytics screenshot…"
-                    {...register("deliverables")}
-                  />
-                  {errors.deliverables && <p className="mt-1 text-xs text-red-500">{errors.deliverables.message}</p>}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="deadline">Deadline</Label>
-                    <Input id="deadline" type="date" {...register("deadline")} />
-                  </div>
-                  <div>
-                    <Label htmlFor="maxApplications">Max applications</Label>
-                    <Input
-                      id="maxApplications"
-                      type="number"
-                      min={1}
-                      placeholder="Unlimited"
-                      {...register("maxApplications", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Step 3 — Review */}
-            {step === 3 && (
-              <div className="space-y-4 text-sm">
-                <ReviewRow label="Title" value={watch("title")} />
-                <ReviewRow label="Platforms" value={platforms.join(", ")} />
-                <ReviewRow label="Genres" value={watch("genres")} />
-                <ReviewRow
-                  label="Budget"
-                  value={`$${(Number(watch("budgetCents")) / 100).toFixed(2)} USD`}
-                />
-                <ReviewRow label="Deliverables" value={watch("deliverables")} />
-                {watch("deadline") && (
-                  <ReviewRow
-                    label="Deadline"
-                    value={new Date(watch("deadline")!).toLocaleDateString("en-US")}
-                  />
-                )}
-                {error && (
-                  <p className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
-                    {error}
-                  </p>
-                )}
-                <p className="text-gray-500 text-xs">
-                  By confirming, a Stripe PaymentIntent will be created in escrow mode (test). Funds are only captured after you approve deliverables.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="mt-6 flex justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => (step === 0 ? router.push("/brand") : setStep((s) => s - 1))}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            {step === 0 ? "Cancel" : "Back"}
-          </Button>
-
-          {step < STEPS.length - 1 ? (
-            <Button type="button" onClick={nextStep}>
-              Next
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating…
-                </>
-              ) : (
-                "Create campaign"
-              )}
-            </Button>
-          )}
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-10">
+          <p className="text-xs font-bold tracking-widest text-[#3a51fb] uppercase mb-1">
+            Service Offered — Influencers Post for Clients
+          </p>
+          <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900">
+            Create a Campaign
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">Select the platform for your campaign</p>
         </div>
-      </form>
-    </div>
-  );
-}
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-3 py-2 border-b border-gray-100 last:border-0">
-      <span className="w-28 flex-shrink-0 font-medium text-gray-500">{label}</span>
-      <span className="text-gray-900">{value || "—"}</span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {PLATFORMS.map((p) => {
+            const Icon = p.icon;
+            const isFeatured = "featured" in p && p.featured;
+            const isComingSoon = "comingSoon" in p && p.comingSoon;
+
+            if (isFeatured) {
+              return (
+                <Link
+                  key={p.id}
+                  href={`/brand/campaigns/new/${p.id}`}
+                  className="col-span-2 sm:col-span-3 flex items-center gap-5 rounded-2xl border-2 border-[#3a51fb] bg-[#3a51fb] p-6 text-white shadow-lg transition hover:bg-[#2a41eb] hover:border-[#2a41eb]"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+                    <Icon className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black uppercase tracking-wide">{p.label}</p>
+                    <p className="text-sm text-white/70">{p.description}</p>
+                  </div>
+                </Link>
+              );
+            }
+
+            if (!p.available) {
+              return (
+                <div
+                  key={p.id}
+                  className="relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-6 opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
+                    <Icon className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <span className="text-sm font-bold text-gray-400 uppercase tracking-wide">
+                    {p.label}
+                  </span>
+                  {isComingSoon && (
+                    <span className="absolute top-3 right-3 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      Soon
+                    </span>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={p.id}
+                href={`/brand/campaigns/new/${p.id}`}
+                className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 bg-white p-6 transition hover:border-[#3a51fb] hover:shadow-md"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#3a51fb]/10">
+                  <Icon className="h-6 w-6 text-[#3a51fb]" />
+                </div>
+                <span className="text-sm font-bold text-gray-800 uppercase tracking-wide">
+                  {p.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

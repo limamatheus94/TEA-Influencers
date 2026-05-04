@@ -85,6 +85,8 @@ enum Platform {
   TIKTOK
   APPLE_MUSIC
   SOUNDCLOUD
+  FACEBOOK
+  PRESS
   OTHER
 }
 
@@ -161,6 +163,8 @@ model CreatorPlatform {
   pricePerPostCents Int?
   currency         String         @default("EUR")
 
+  selections       CampaignSelection[]
+
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -199,10 +203,15 @@ model Campaign {
   status         CampaignStatus @default(DRAFT)
   stripePaymentIntentId String?
 
+  artistName  String?
+  songTitle   String?
+  songLink    String?
+
   applications Application[]
   invitations  CampaignInvitation[]
   messages     Message[]
   payments     Payment[]
+  selections   CampaignSelection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -287,6 +296,18 @@ model Payment {
   updatedAt DateTime @updatedAt
 
   @@map("payments")
+}
+
+model CampaignSelection {
+  id                String          @id @default(cuid())
+  campaignId        String
+  campaign          Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorPlatformId String
+  creatorPlatform   CreatorPlatform @relation(fields: [creatorPlatformId], references: [id])
+  agreedPriceCents  Int
+
+  @@unique([campaignId, creatorPlatformId])
+  @@map("campaign_selections")
 }
 
 model Message {
