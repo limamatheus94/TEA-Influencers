@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUser, useAuth } from "@clerk/nextjs";
 
 const roles = [
   {
@@ -18,15 +16,12 @@ const roles = [
 ];
 
 export default function OnboardingForm() {
-  const { user } = useUser();
-  const { getToken } = useAuth();
-  const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleContinue() {
-    if (!selected || !user) return;
+    if (!selected) return;
     setLoading(true);
     setError(null);
     try {
@@ -37,11 +32,9 @@ export default function OnboardingForm() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to set role");
+        throw new Error(data.error ?? `Error ${res.status}`);
       }
-      await user.reload();
-      // Force Clerk to issue a fresh JWT with the new role in publicMetadata
-      await getToken({ skipCache: true });
+      // Hard navigation so the server-side layout reads fresh data from the DB
       window.location.href = selected === "CREATOR" ? "/creator" : "/brand";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
