@@ -17,7 +17,7 @@ const createSchema = z.object({
   // Pick & choose fields
   artistName: z.string().optional(),
   songTitle: z.string().optional(),
-  songLink: z.string().url().optional().or(z.literal("")),
+  songLink: z.string().optional(),
   platformSlug: z.string().optional(),
   selectedPlatformIds: z.array(z.string()).optional(),
   totalCents: z.number().int().min(0).optional(),
@@ -64,7 +64,8 @@ export async function POST(req: Request) {
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    const messages = parsed.error.issues.map((e) => e.message).join(", ");
+    return NextResponse.json({ error: messages }, { status: 400 });
   }
 
   const data = parsed.data;
