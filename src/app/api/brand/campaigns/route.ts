@@ -62,13 +62,17 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
+  console.log("[campaigns POST] body:", JSON.stringify(body));
+
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     const messages = parsed.error.issues.map((e) => e.message).join(", ");
+    console.log("[campaigns POST] zod error:", messages);
     return NextResponse.json({ error: messages }, { status: 400 });
   }
 
   const data = parsed.data;
+  console.log("[campaigns POST] parsed ok, genres:", data.genres, "platforms:", data.platforms, "budget:", data.budgetCents, "deliverables:", data.deliverables);
   const isPickAndChoose = Array.isArray(data.selectedPlatformIds) && data.selectedPlatformIds.length > 0;
 
   if (isPickAndChoose) {
@@ -110,27 +114,45 @@ export async function POST(req: Request) {
 
   // Open Call flow
   if (!data.genres?.length || !data.platforms?.length || !data.budgetCents || !data.deliverables) {
-    return NextResponse.json({ error: "Missing required fields for campaign creation" }, { status: 400 });
-  }
-
-  const campaign = await prisma.campaign.create({
-    data: {
-      brandProfileId: user.brandProfile.id,
-      title: data.title,
-      artistName: data.artistName,
-      songTitle: data.songTitle,
-      songLink: data.songLink || null,
-      description: data.description,
-      genres: data.genres,
-      platforms: data.platforms,
+    console.log("[campaigns POST] missing fields check failed:", {
+      genres: data.genres?.length,
+      platforms: data.platforms?.length,
       budgetCents: data.budgetCents,
       deliverables: data.deliverables,
-      deadline: data.deadline ? new Date(data.deadline) : null,
-      maxApplications: data.maxApplications,
-      status: CampaignStatus.OPEN,
-      campaignType: data.campaignType ?? CampaignType.OPEN_CALL,
-    },
-  });
+    });
+    return NextResponse.json({
+      error: `Missing required fields: ${[
+        !data.genres?.length && "genres",
+        !data.platforms?.length && "platforms",
+        !data.budgetCents && "budget",
+        !data.deliverables && "deliverables",
+      ].filter(Boolean).join(", ")}`,
+    }, { status: 400 });
+  }
 
-  return NextResponse.json({ campaign }, { status: 201 });
+  try {
+    const campaign = await prisma.campaign.create({
+      data: {
+        brandProfileId: user.brandProfile.id,
+        title: data.title,
+        artistName: data.artistName,
+        songTitle: data.songTitle,
+        songLink: data.songLink || null,
+        description: data.description,
+        genres: data.genres,
+        platforms: data.platforms,
+        budgetCents: data.budgetCents,
+        deliverables: data.deliverables,
+        deadline: data.deadline ? new Date(data.deadline) : null,
+        maxApplications: data.maxApplications,
+        status: CampaignStatus.OPEN,
+        campaignType: data.campaignType ?? CampaignType.OPEN_CALL,
+      },
+    });
+    return NextResponse.json({ campaign }, { status: 201 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[campaigns POST] prisma error:", msg);
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
 }
