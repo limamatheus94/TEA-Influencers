@@ -34,7 +34,7 @@ export default function OnboardingForm() {
       });
       if (!res.ok) throw new Error("Failed to set role");
       await user.reload();
-      router.push(selected === "CREATOR" ? "/creator" : "/brand");
+      window.location.href = selected === "CREATOR" ? "/creator" : "/brand";
     } finally {
       setLoading(false);
     }
