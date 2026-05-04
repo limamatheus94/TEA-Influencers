@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { CampaignStatus, Platform } from "@prisma/client";
+import { CampaignStatus, CampaignType, Platform } from "@prisma/client";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -21,6 +21,7 @@ const createSchema = z.object({
   platformSlug: z.string().optional(),
   selectedPlatformIds: z.array(z.string()).optional(),
   totalCents: z.number().int().min(0).optional(),
+  campaignType: z.nativeEnum(CampaignType).optional(),
 });
 
 export async function GET() {
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
         budgetCents: budget,
         deliverables: "Influencer post as selected",
         status: CampaignStatus.OPEN,
+        campaignType: CampaignType.PICK_AND_CHOOSE,
         selections: {
           create: creatorPlatforms.map((cp) => ({
             creatorPlatformId: cp.id,
@@ -105,27 +107,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ campaign }, { status: 201 });
   }
 
-  // Legacy multi-step form flow
+  // Open Call flow
   if (!data.genres?.length || !data.platforms?.length || !data.budgetCents || !data.deliverables) {
     return NextResponse.json({ error: "Missing required fields for campaign creation" }, { status: 400 });
   }
-
-  // Create Stripe PaymentIntent in escrow (manual capture)
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: data.budgetCents,
-    currency: "usd",
-    capture_method: "manual",
-    metadata: {
-      brandProfileId: user.brandProfile.id,
-      brandUserId: user.id,
-    },
-    description: `Campaign: ${data.title}`,
-  });
 
   const campaign = await prisma.campaign.create({
     data: {
       brandProfileId: user.brandProfile.id,
       title: data.title,
+      artistName: data.artistName,
+      songTitle: data.songTitle,
+      songLink: data.songLink || null,
       description: data.description,
       genres: data.genres,
       platforms: data.platforms,
@@ -133,13 +126,10 @@ export async function POST(req: Request) {
       deliverables: data.deliverables,
       deadline: data.deadline ? new Date(data.deadline) : null,
       maxApplications: data.maxApplications,
-      status: CampaignStatus.DRAFT,
-      stripePaymentIntentId: paymentIntent.id,
+      status: CampaignStatus.OPEN,
+      campaignType: data.campaignType ?? CampaignType.OPEN_CALL,
     },
   });
 
-  return NextResponse.json(
-    { campaign, clientSecret: paymentIntent.client_secret },
-    { status: 201 }
-  );
+  return NextResponse.json({ campaign }, { status: 201 });
 }

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { CampaignStatus } from "@prisma/client";
+import { CampaignStatus, CampaignType } from "@prisma/client";
 import { Search, Calendar, DollarSign } from "lucide-react";
 
 export default async function ExploreCampaignsPage({
@@ -28,6 +28,7 @@ export default async function ExploreCampaignsPage({
   const campaigns = await prisma.campaign.findMany({
     where: {
       status: CampaignStatus.OPEN,
+      campaignType: CampaignType.OPEN_CALL,
       ...(genre && { genres: { has: genre } }),
       ...(platform && { platforms: { has: platform as never } }),
       applications: {
@@ -42,7 +43,7 @@ export default async function ExploreCampaignsPage({
   });
 
   const allGenres = await prisma.campaign.findMany({
-    where: { status: CampaignStatus.OPEN },
+    where: { status: CampaignStatus.OPEN, campaignType: CampaignType.OPEN_CALL },
     select: { genres: true },
   });
   const genreSet = [...new Set(allGenres.flatMap((c) => c.genres))].sort();

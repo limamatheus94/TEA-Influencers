@@ -24,6 +24,11 @@ enum CampaignStatus {
   CANCELLED
 }
 
+enum CampaignType {
+  OPEN_CALL
+  PICK_AND_CHOOSE
+}
+
 enum ApplicationStatus {
   PENDING
   APPROVED
@@ -201,6 +206,7 @@ model Campaign {
   deadline       DateTime?
   maxApplications Int?
   status         CampaignStatus @default(DRAFT)
+  campaignType   CampaignType   @default(OPEN_CALL)
   stripePaymentIntentId String?
 
   artistName  String?
