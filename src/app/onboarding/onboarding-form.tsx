@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 
 const roles = [
   {
@@ -19,23 +19,32 @@ const roles = [
 
 export default function OnboardingForm() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleContinue() {
     if (!selected || !user) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: selected }),
       });
-      if (!res.ok) throw new Error("Failed to set role");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to set role");
+      }
       await user.reload();
+      // Force Clerk to issue a fresh JWT with the new role in publicMetadata
+      await getToken({ skipCache: true });
       window.location.href = selected === "CREATOR" ? "/creator" : "/brand";
-    } finally {
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setLoading(false);
     }
   }
@@ -60,6 +69,9 @@ export default function OnboardingForm() {
             </button>
           ))}
         </div>
+        {error && (
+          <p className="text-sm text-red-600 text-center">{error}</p>
+        )}
         <button
           onClick={handleContinue}
           disabled={!selected || loading}
