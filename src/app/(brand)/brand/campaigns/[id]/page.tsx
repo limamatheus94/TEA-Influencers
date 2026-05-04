@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApplicationStatus, CampaignStatus } from "@prisma/client";
-import { ChevronLeft, Calendar, DollarSign, Users } from "lucide-react";
+import { ChevronLeft, Calendar, DollarSign, Users, BarChart2 } from "lucide-react";
 import { ApplicationActions, ReleasePaymentForm } from "./application-actions";
 
 const campaignStatusVariant: Record<CampaignStatus, "default" | "success" | "warning" | "secondary" | "destructive"> = {
@@ -101,9 +101,17 @@ export default async function CampaignDetailPage({
             </div>
           </div>
 
-          {campaign.status === "DRAFT" && (
-            <PublishButton campaignId={campaign.id} />
-          )}
+          <div className="flex items-center gap-2">
+            <Link href={`/brand/campaigns/${campaign.id}/report`}>
+              <Button variant="outline" size="sm">
+                <BarChart2 className="mr-1.5 h-4 w-4" />
+                View Report
+              </Button>
+            </Link>
+            {campaign.status === "DRAFT" && (
+              <PublishButton campaignId={campaign.id} />
+            )}
+          </div>
         </div>
       </div>
 

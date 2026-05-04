@@ -4,10 +4,11 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { ApplicationStatus } from "@prisma/client";
-import { FileText, Search } from "lucide-react";
+import { FileText, Search, ExternalLink, CheckCircle2 } from "lucide-react";
+import { DeliveryForm } from "./delivery-form";
 
 const statusVariant: Record<ApplicationStatus, "default" | "success" | "warning" | "secondary" | "destructive"> = {
   PENDING: "warning",
@@ -42,7 +43,7 @@ export default async function MyApplicationsPage() {
         },
       },
       payment: true,
-      deliveryItems: true,
+      deliveryItems: { orderBy: { createdAt: "desc" } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -90,33 +91,72 @@ export default async function MyApplicationsPage() {
                 <Card>
                   <CardContent className="divide-y divide-gray-100 p-0">
                     {group.map((app) => (
-                      <div key={app.id} className="flex items-start gap-4 p-5">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium text-gray-900 truncate">{app.campaign.title}</p>
-                            <Badge variant={statusVariant[app.status]}>{statusLabel[app.status]}</Badge>
-                          </div>
-                          <p className="text-xs text-gray-500 mb-2">{app.campaign.brandProfile.companyName}</p>
+                      <div key={app.id} className="p-5">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium text-gray-900 truncate">{app.campaign.title}</p>
+                              <Badge variant={statusVariant[app.status]}>{statusLabel[app.status]}</Badge>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-2">{app.campaign.brandProfile.companyName}</p>
 
-                          <div className="bg-gray-50 rounded-md p-3 mb-2">
-                            <p className="text-xs font-medium text-gray-500 mb-1">Your pitch</p>
-                            <p className="text-sm text-gray-700 line-clamp-3">{app.pitch}</p>
-                          </div>
+                            <div className="bg-gray-50 rounded-md p-3 mb-2">
+                              <p className="text-xs font-medium text-gray-500 mb-1">Your pitch</p>
+                              <p className="text-sm text-gray-700 line-clamp-3">{app.pitch}</p>
+                            </div>
 
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span>Budget: {formatCurrency(app.campaign.budgetCents)}</span>
-                            {app.payment && (
-                              <span className="text-green-600 font-medium">
-                                Earned: {formatCurrency(app.payment.netCents)}
-                              </span>
-                            )}
-                            <span>Applied on {new Date(app.createdAt).toLocaleDateString("en-US")}</span>
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span>Budget: {formatCurrency(app.campaign.budgetCents)}</span>
+                              {app.payment && (
+                                <span className="text-green-600 font-medium">
+                                  Earned: {formatCurrency(app.payment.netCents)}
+                                </span>
+                              )}
+                              <span>Applied on {new Date(app.createdAt).toLocaleDateString("en-US")}</span>
+                            </div>
                           </div>
                         </div>
 
-                        {app.status === "APPROVED" && app.deliveryItems.length === 0 && (
-                          <div className="flex-shrink-0">
-                            <Badge variant="warning" className="text-xs">Delivery pending</Badge>
+                        {/* Approved: show deliveries or submission form */}
+                        {app.status === "APPROVED" && (
+                          <div className="mt-4">
+                            {app.deliveryItems.length > 0 ? (
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                  Deliveries submitted ({app.deliveryItems.length})
+                                </p>
+                                {app.deliveryItems.map((d) => (
+                                  <div key={d.id} className="flex items-center gap-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm">
+                                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-medium text-green-800">{d.platform}</span>
+                                      {d.impressions != null && (
+                                        <span className="ml-2 text-green-700">{d.impressions.toLocaleString()} impressions</span>
+                                      )}
+                                      {d.likes != null && (
+                                        <span className="ml-2 text-green-700">{d.likes.toLocaleString()} likes</span>
+                                      )}
+                                    </div>
+                                    <a
+                                      href={d.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex-shrink-0 text-green-700 hover:text-green-900"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  </div>
+                                ))}
+                                <DeliveryForm applicationId={app.id} />
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-xs text-amber-700 font-medium mb-2">
+                                  Delivery pending — submit your post metrics below.
+                                </p>
+                                <DeliveryForm applicationId={app.id} />
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

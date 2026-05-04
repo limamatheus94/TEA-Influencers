@@ -227,12 +227,20 @@ model DeliveryItem {
   applicationId String
   application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   platform      Platform
-  url           String
+  url           String         // post link
   screenshotUrl String?
   notes         String?
   status        DeliveryStatus @default(PENDING)
   submittedAt   DateTime?
   reviewedAt    DateTime?
+
+  // Metrics captured after posting
+  impressions      Int?
+  likes            Int?
+  followersCount   Int?    // snapshot at time of delivery
+  postDescription  String?
+  storyTag         String?
+  storyLink        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
