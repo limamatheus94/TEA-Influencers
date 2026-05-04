@@ -31,6 +31,12 @@ enum ApplicationStatus {
   WITHDRAWN
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum DeliveryStatus {
   PENDING
   SUBMITTED
@@ -119,6 +125,9 @@ model CreatorProfile {
   fitScore            Float?    // AI-computed aggregate score
   isPublic            Boolean   @default(true)
   invitedFromToken    String?
+  approvalStatus      ApprovalStatus @default(PENDING)
+  approvedAt          DateTime?
+  rejectedReason      String?
   discoveredCreatorId String?            @unique
   discoveredCreator   DiscoveredCreator? @relation(fields: [discoveredCreatorId], references: [id])
 
@@ -142,7 +151,18 @@ model CreatorPlatform {
   followersCount   Int?
   subscribersCount Int?
   isVerified       Boolean        @default(false)
+
+  // Influencer profile fields
+  logoUrl          String?
+  profileCategory  String?        // "COMMUNITY" | "CREATOR"
+  genres           String[]       @default([])
+  keyTopics        String[]       @default([])
+  topLocations     Json?          // [{rank: 1, country: "Brazil", pct: 19.4}, ...]
+  pricePerPostCents Int?
+  currency         String         @default("EUR")
+
   createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@unique([creatorProfileId, platform])
   @@map("creator_platforms")

@@ -5,10 +5,11 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, CreditCard, Settings, Shield } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Settings, Shield, UserCheck } from "lucide-react";
 
 const navItems = [
   { href: "/admin/campaigns", label: "Campanhas", icon: LayoutDashboard },
+  { href: "/admin/creators", label: "Creators", icon: UserCheck },
   { href: "/admin/users", label: "Usuários", icon: Users },
   { href: "/admin/payments", label: "Pagamentos", icon: CreditCard },
   { href: "/admin/config", label: "Configurações", icon: Settings },
